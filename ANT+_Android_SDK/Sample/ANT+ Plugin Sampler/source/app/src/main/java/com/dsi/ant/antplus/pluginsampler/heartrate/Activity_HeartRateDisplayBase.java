@@ -11,15 +11,19 @@ package com.dsi.ant.antplus.pluginsampler.heartrate;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
+
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -41,14 +45,26 @@ import com.dsi.ant.plugins.antplus.pccbase.AntPlusLegacyCommonPcc.ICumulativeOpe
 import com.dsi.ant.plugins.antplus.pccbase.AntPlusLegacyCommonPcc.IManufacturerAndSerialReceiver;
 import com.dsi.ant.plugins.antplus.pccbase.AntPlusLegacyCommonPcc.IVersionAndModelReceiver;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.EnumSet;
+
+import de.killig.antbridge.ANTBridge;
+
+import static androidx.core.content.FileProvider.getUriForFile;
 
 /**
  * Base class to connects to Heart Rate Plugin and display all the event data.
  */
 public abstract class Activity_HeartRateDisplayBase extends Activity
 {
+    private static final String LOG_TAG = Activity_HeartRateDisplayBase.class.getSimpleName();
     protected abstract void requestAccessToPcc();
 
     AntPlusHeartRatePcc hrPcc = null;
@@ -80,6 +96,11 @@ public abstract class Activity_HeartRateDisplayBase extends Activity
 
     TextView tv_dataStatus;
     TextView tv_rrFlag;
+
+
+    PrintWriter pw;
+    private static final String CSV="hr.csv";
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -192,6 +213,13 @@ public abstract class Activity_HeartRateDisplayBase extends Activity
                         tv_estTimestamp.setText(String.valueOf(estTimestamp));
 
                         tv_computedHeartRate.setText(textHeartRate);
+                        //ANTBridge.showJoyStick(Activity_HeartRateDisplayBase.this, textHeartRate,null);
+                        String line=ZonedDateTime.now().format(DateTimeFormatter.ISO_INSTANT)+","+textHeartRate;
+                        pw.println(line);
+                        Log.i(LOG_TAG, "line="+line);
+                        if(pw.checkError()) {
+                            Log.w(LOG_TAG, "checkError()");
+                        }
                         tv_heartBeatCounter.setText(textHeartBeatCount);
                         tv_heartBeatEventTime.setText(textHeartBeatEventTime);
 
@@ -320,6 +348,10 @@ public abstract class Activity_HeartRateDisplayBase extends Activity
         });
     }
 
+
+
+
+
     protected IPluginAccessResultReceiver<AntPlusHeartRatePcc> base_IPluginAccessResultReceiver =
         new IPluginAccessResultReceiver<AntPlusHeartRatePcc>()
         {
@@ -335,6 +367,13 @@ public abstract class Activity_HeartRateDisplayBase extends Activity
                     hrPcc = result;
                     tv_status.setText(result.getDeviceName() + ": " + initialDeviceState);
                     subscribeToHrEvents();
+                    ANTBridge.startRC(tv_computedHeartRate);
+                    try {
+                        pw=new PrintWriter(openFileOutput(CSV, Context.MODE_PRIVATE | Context.MODE_APPEND));
+//                        pw.println("Timestamp,HeartRate");
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
                     if(!result.supportsRssi()) tv_rssi.setText("N/A");
                     break;
                 case CHANNEL_NOT_AVAILABLE:
@@ -421,9 +460,22 @@ public abstract class Activity_HeartRateDisplayBase extends Activity
             }
         };
 
-        @Override
+    @Override
+    protected void onPause() {
+        Log.d(LOG_TAG,"onPause()");
+        super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        Log.d(LOG_TAG,"onStop()");
+        super.onStop();
+    }
+
+    @Override
         protected void onDestroy()
         {
+            Log.d(LOG_TAG,"onDestroy()");
             if(releaseHandle != null)
             {
                 releaseHandle.close();
@@ -442,11 +494,27 @@ public abstract class Activity_HeartRateDisplayBase extends Activity
         @Override
         public boolean onOptionsItemSelected(MenuItem item)
         {
+            Intent serviceIntent = new Intent(this, ANTBridge.class);
             switch(item.getItemId())
             {
                 case R.id.menu_reset:
                     handleReset();
                     tv_status.setText("Resetting...");
+                    return true;
+                case R.id.menu_share:
+                    if(pw!=null) pw.close();
+                    ANTBridge.upload(this, CSV);
+                    return true;
+                case R.id.menu_reset_csv:
+                    if(pw!=null) pw.close();
+                    deleteFile(CSV);
+                    return true;
+                case R.id.service_start:
+//                    serviceIntent.putExtra("inputExtra", "Foreground Service Example in Android");
+                    ContextCompat.startForegroundService(this, serviceIntent);
+                    return true;
+                case R.id.service_stop:
+                    stopService(serviceIntent);
                     return true;
                 default:
                     return super.onOptionsItemSelected(item);
