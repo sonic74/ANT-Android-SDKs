@@ -9,21 +9,30 @@ All rights reserved.
 
 package com.dsi.ant.antplus.pluginsampler;
 
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
+
+import com.dsi.ant.antplus.pluginsampler.heartrate.Activity_HeartRateDisplayBase;
 import com.dsi.ant.antplus.pluginsampler.multidevicesearch.Activity_MultiDeviceSearchSampler;
 import com.dsi.ant.plugins.antplus.pcc.AntPlusEnvironmentPcc;
 import com.dsi.ant.plugins.antplus.pcc.AntPlusEnvironmentPcc.ITemperatureDataReceiver;
@@ -37,11 +46,14 @@ import com.dsi.ant.plugins.antplus.pccbase.AntPlusCommonPcc.IProductInformationR
 import com.dsi.ant.plugins.antplus.pccbase.MultiDeviceSearch.MultiDeviceSearchResult;
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle;
 
+import de.killig.antbridge.ANTBridge;
+
 /**
  * Connects to Environment Plugin and display all the event data.
  */
 public class Activity_EnvironmentSampler extends Activity
 {
+    private static final String LOG_TAG = Activity_EnvironmentSampler.class.getSimpleName();
     AntPlusEnvironmentPcc envPcc = null;
     PccReleaseHandle<AntPlusEnvironmentPcc> releaseHandle = null;
 
@@ -62,6 +74,11 @@ public class Activity_EnvironmentSampler extends Activity
     TextView tv_supplementalSoftwareRevision;
     TextView tv_serialNumber;
 
+
+    PrintWriter pw;
+    private static final String CSV="tempe.csv";
+
+
     IPluginAccessResultReceiver<AntPlusEnvironmentPcc> mResultReceiver = new IPluginAccessResultReceiver<AntPlusEnvironmentPcc>()
     {
         // Handle the result, connecting to events on success or reporting
@@ -76,6 +93,13 @@ public class Activity_EnvironmentSampler extends Activity
                     envPcc = result;
                     tv_status.setText(result.getDeviceName() + ": " + initialDeviceState);
                     subscribeToEvents();
+                    ANTBridge.startRC(tv_currentTemperature);
+                    try {
+                        pw=new PrintWriter(openFileOutput(CSV, Context.MODE_PRIVATE | Context.MODE_APPEND));
+//                        pw.println("Timestamp,Temperature");
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
                     break;
                 case CHANNEL_NOT_AVAILABLE:
                     Toast.makeText(Activity_EnvironmentSampler.this, "Channel Not Available",
@@ -179,6 +203,10 @@ public class Activity_EnvironmentSampler extends Activity
                             tv_estTimestamp.setText(String.valueOf(estTimestamp));
 
                             tv_currentTemperature.setText(String.valueOf(currentTemperature));
+//                            ANTBridge.showJoyStick(Activity_EnvironmentSampler.this, currentTemperature.toString(),null);
+                            String line=ZonedDateTime.now().format(DateTimeFormatter.ISO_INSTANT)+","+currentTemperature;
+                            pw.println(line);
+                            Log.i(LOG_TAG, "line="+line);
                             tv_eventCount.setText(String.valueOf(eventCount));
                             tv_lowLast24Hours.setText(String.valueOf(lowLast24Hours));
                             tv_highLast24Hours.setText(String.valueOf(highLast24Hours));
@@ -355,11 +383,27 @@ public class Activity_EnvironmentSampler extends Activity
     @Override
     public boolean onOptionsItemSelected(MenuItem item)
     {
+        Intent serviceIntent = new Intent(this, ANTBridge.class);
         switch(item.getItemId())
         {
             case R.id.menu_reset:
                 resetPcc();
                 tv_status.setText("Resetting...");
+                return true;
+            case R.id.menu_share:
+                if(pw!=null) pw.close();
+                ANTBridge.upload(this, CSV);
+                return true;
+            case R.id.menu_reset_csv:
+                if(pw!=null) pw.close();
+                deleteFile(CSV);
+                return true;
+            case R.id.service_start:
+//                    serviceIntent.putExtra("inputExtra", "Foreground Service Example in Android");
+                ContextCompat.startForegroundService(this, serviceIntent);
+                return true;
+            case R.id.service_stop:
+                stopService(serviceIntent);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);

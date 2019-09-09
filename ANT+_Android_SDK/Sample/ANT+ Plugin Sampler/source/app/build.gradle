@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 16
+    compileSdkVersion 28
     buildToolsVersion "28.0.3"
 
     defaultConfig {
         applicationId "com.dsi.ant.antplus.pluginsampler"
-        minSdkVersion 7
-        targetSdkVersion 16
+        minSdkVersion 26
+        targetSdkVersion 26
     }
 
     buildTypes {
@@ -19,7 +19,8 @@ android {
 }
 
 dependencies {
-    compile 'com.android.support:support-v4:18.+'
+    compile 'androidx.legacy:legacy-support-v4:1.0.0'
+    compile('org.nanohttpd:nanohttpd:+')
     implementation files('libs/antpluginlib_3-5-0.jar')
     implementation files('libs/fit_14.10.jar')
 }

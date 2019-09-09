@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE AndroidXML>
+
 <!--
 This software is subject to the license described in the License.txt file
 included with this software distribution. You may not use this file except in compliance
@@ -35,5 +35,9 @@ All rights reserved.
     <string name="label_selectAll">Select All</string>
     <string name="label_deviceTypeFilter">Select Device Types to Search:</string>
     <string name="label_RSSI">RSSI: </string>
+    <string name="menu_share">Share CSV</string>
+    <string name="menu_reset_csv">Reset CSV</string>
+    <string name="menu_service_start">Start service</string>
+    <string name="menu_service_stop">Stop service</string>
 
 </resources>
