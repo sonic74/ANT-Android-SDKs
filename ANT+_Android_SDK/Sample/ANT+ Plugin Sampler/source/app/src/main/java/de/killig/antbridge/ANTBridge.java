@@ -143,11 +143,24 @@ public class ANTBridge extends Service {
         Log.d(LOG_TAG, "onCreate()");
     }
 
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel serviceChannel = new NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    "Foreground Service Channel",
+                    NotificationManager.IMPORTANCE_DEFAULT
+            );
+
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            manager.createNotificationChannel(serviceChannel);
+        }
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(LOG_TAG, "onStartCommand("+intent+","+flags+","+startId);
         String input = intent.getStringExtra("inputExtra");
-        //createNotificationChannel();
+        createNotificationChannel();
         Intent notificationIntent = new Intent(this, Activity_Dashboard.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this,
                 0, notificationIntent, 0);
